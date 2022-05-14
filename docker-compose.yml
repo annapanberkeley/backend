@@ -1,0 +1,44 @@
+version: "2"
+
+# we need 4 containers
+services:
+
+# container #1: webserver
+  app:
+    build: ./app
+    container_name: "Flask_App"
+    ports:
+    # left hand side  - EXTERNAL; right hand side is internal (what the webserver port is)
+      - "8000:5000"
+
+# container #2: mySQL db
+  db:
+  # image already available in docker library for SQL db
+    image: mysql:5.7
+    container_name: "MySQL_Database"
+    # listening to SQL at 32000 but its running on 3306 (the default)
+    ports:
+      - "32000:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+    # move everything from here:to what's here in the container
+      - ./db:/docker-entrypoint-initdb.d/:ro
+
+# container #3: redis task manager
+  redis:
+    image: redis
+    ports:
+      - 6379:6379
+    expose:
+      - '6379'
+
+# container #4: RQ task queues / workers
+  worker:
+    build: ./worker
+    container_name: worker
+    command: rq worker --with-scheduler -u "redis://redis:6379"
+    deploy:
+      replicas: 1
+    depends_on:
+      - redis
